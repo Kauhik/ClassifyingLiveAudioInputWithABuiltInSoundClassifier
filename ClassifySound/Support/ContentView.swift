@@ -1,37 +1,31 @@
-/*
-See the LICENSE.txt file for this sample’s licensing information.
-
-Abstract:
-The top-level view for the app.
-*/
-
 import SwiftUI
 
-/// The main view that contains the app content.
 struct ContentView: View {
-    /// Indicates whether to display the setup workflow.
-    @State var showSetup = true
-
-    /// A configuration for managing the characteristics of a sound classification task.
-    @State var appConfig = AppConfiguration()
-
-    /// The runtime state that contains information about the strength of the detected sounds.
-    @StateObject var appState = AppState()
+    @State private var showSetup = true
+    @State private var config = AppConfiguration()
+    @StateObject private var appState = AppState()
 
     var body: some View {
         ZStack {
             if showSetup {
                 SetupMonitoredSoundsView(
-                  querySoundOptions: { return try AppConfiguration.listAllValidSoundIdentifiers() },
-                  selectedSounds: $appConfig.monitoredSounds,
-                  doneAction: {
-                    showSetup = false
-                    appState.restartDetection(config: appConfig)
-                  })
+                    querySoundOptions: { try AppConfiguration.availableSystemSounds() },
+                    selectedSounds: $config.monitoredSounds,
+                    doneAction: {
+                        showSetup = false
+                        appState.restartDetection(with: config)
+                    },
+                    customAction: {
+                        showSetup = false
+                        appState.restartCustomDetection()
+                    }
+                )
             } else {
-                DetectSoundsView(state: appState,
-                                 config: $appConfig,
-                                 configureAction: { showSetup = true })
+                DetectSoundsView(
+                  state: appState,
+                  config: $config,
+                  configureAction: { showSetup = true }
+                )
             }
         }
     }

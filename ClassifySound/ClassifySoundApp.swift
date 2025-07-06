@@ -1,72 +1,121 @@
 import SwiftUI
 import Combine
 import SoundAnalysis
+import CoreML
 
+/// Holds your app’s configuration.
 struct AppConfiguration {
-    var inferenceWindowSize: Double
-    var overlapFactor: Double
+    var windowDuration: Double
+    var overlap: Double
     var monitoredSounds: Set<SoundIdentifier>
 
-    init(inferenceWindowSize: Double = 1.5, overlapFactor: Double = 0.9) {
-        self.inferenceWindowSize = inferenceWindowSize
-        self.overlapFactor = overlapFactor
+    init(windowDuration: Double = 1.5, overlap: Double = 0.9) {
+        self.windowDuration = windowDuration
+        self.overlap = overlap
         do {
-            let labels = try SystemAudioClassifier.getAllPossibleLabels()
+            let labels = try SystemAudioClassifier.systemLabels()
             self.monitoredSounds = Set(labels.map { SoundIdentifier(labelName: $0) })
         } catch {
-            print("Error retrieving sound analysis labels: \(error)")
+            print("Error loading system labels: \(error)")
             self.monitoredSounds = []
         }
     }
 
-    static func listAllValidSoundIdentifiers() throws -> Set<SoundIdentifier> {
-        let labels = try SystemAudioClassifier.getAllPossibleLabels()
+    static func availableSystemSounds() throws -> Set<SoundIdentifier> {
+        let labels = try SystemAudioClassifier.systemLabels()
         return Set(labels.map { SoundIdentifier(labelName: $0) })
     }
 }
 
+/// Manages detection state and pipelines.
 class AppState: ObservableObject {
-    private var detectionCancellable: AnyCancellable? = nil
-    private var appConfig = AppConfiguration()
-
     @Published var detectionStates: [(SoundIdentifier, DetectionState)] = []
-    @Published var soundDetectionIsRunning: Bool = false
+    @Published var isRunning = false
 
-    func restartDetection(config: AppConfiguration) {
-        SystemAudioClassifier.singleton.stopSoundClassification()
+    private var config = AppConfiguration()
+    private var cancellable: AnyCancellable?
 
-        let classificationSubject = PassthroughSubject<SNClassificationResult, Error>()
+    /// Start the system classifier with the selected labels.
+    func restartDetection(with config: AppConfiguration) {
+        SystemAudioClassifier.shared.stopClassification()
+        self.config = config
 
-        detectionCancellable = classificationSubject
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in self.soundDetectionIsRunning = false },
-                  receiveValue: { result in
-                      self.detectionStates = AppState.advanceDetectionStates(self.detectionStates, givenClassificationResult: result)
-                  })
-
-        self.detectionStates = config.monitoredSounds
+        detectionStates = config.monitoredSounds
             .sorted(by: { $0.displayName < $1.displayName })
-            .map { ($0, DetectionState(presenceThreshold: 0.5,
-                                       absenceThreshold: 0.3,
-                                       presenceMeasurementsToStartDetection: 2,
-                                       absenceMeasurementsToEndDetection: 30)) }
+            .map {
+                ( $0,
+                  DetectionState(
+                    presenceThreshold: 0.5,
+                    absenceThreshold: 0.3,
+                    presenceMeasurementsToStartDetection: 2,
+                    absenceMeasurementsToEndDetection: 30
+                  )
+                )
+            }
 
-        soundDetectionIsRunning = true
-        appConfig = config
+        let subject = PassthroughSubject<SNClassificationResult, Error>()
+        cancellable = subject
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { _ in self.isRunning = false },
+                receiveValue: { result in
+                    self.detectionStates = self.detectionStates.map { identifier, prev in
+                        let conf = result.classification(forIdentifier: identifier.labelName)?.confidence ?? 0
+                        return (identifier, DetectionState(advancedFrom: prev, currentConfidence: conf))
+                    }
+                }
+            )
 
-        SystemAudioClassifier.singleton.startSoundClassification(
-            subject: classificationSubject,
-            inferenceWindowSize: config.inferenceWindowSize,
-            overlapFactor: config.overlapFactor)
+        isRunning = true
+        SystemAudioClassifier.shared.startSystemClassification(
+            subject: subject,
+            windowDuration: config.windowDuration,
+            overlap: config.overlap
+        )
     }
 
-    static func advanceDetectionStates(_ oldStates: [(SoundIdentifier, DetectionState)],
-                                       givenClassificationResult result: SNClassificationResult) -> [(SoundIdentifier, DetectionState)] {
-        return oldStates.map { (identifier, state) in
-            let confidence = result.classification(forIdentifier: identifier.labelName)?.confidence ?? 0
-            let updated = DetectionState(advancedFrom: state, currentConfidence: confidence)
-            return (identifier, updated)
+    /// Start classification using your custom PoltekAudio.mlmodel.
+    func restartCustomDetection() {
+        SystemAudioClassifier.shared.stopClassification()
+
+        do {
+            let labels = try SystemAudioClassifier.customLabels()
+            detectionStates = Set(labels.map { SoundIdentifier(labelName: $0) })
+                .sorted(by: { $0.displayName < $1.displayName })
+                .map {
+                    ( $0,
+                      DetectionState(
+                        presenceThreshold: 0.5,
+                        absenceThreshold: 0.3,
+                        presenceMeasurementsToStartDetection: 2,
+                        absenceMeasurementsToEndDetection: 30
+                      )
+                    )
+                }
+        } catch {
+            print("Failed to load custom labels: \(error)")
+            detectionStates = []
         }
+
+        let subject = PassthroughSubject<SNClassificationResult, Error>()
+        cancellable = subject
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { _ in self.isRunning = false },
+                receiveValue: { result in
+                    self.detectionStates = self.detectionStates.map { identifier, prev in
+                        let conf = result.classification(forIdentifier: identifier.labelName)?.confidence ?? 0
+                        return (identifier, DetectionState(advancedFrom: prev, currentConfidence: conf))
+                    }
+                }
+            )
+
+        isRunning = true
+        SystemAudioClassifier.shared.startCustomClassification(
+            subject: subject,
+            windowDuration: config.windowDuration,
+            overlap: config.overlap
+        )
     }
 }
 

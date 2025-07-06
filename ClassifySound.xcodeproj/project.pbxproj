@@ -3,10 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		805EDDD22E1A22B0002349D6 /* PoltekAudio.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 805EDDD12E1A22B0002349D6 /* PoltekAudio.mlmodel */; };
 		C799A65F263BBB3C000E6127 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C799A65E263BBB3C000E6127 /* Assets.xcassets */; };
 		C799A662263BBB3C000E6127 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C799A661263BBB3C000E6127 /* Preview Assets.xcassets */; };
 		C799A670263BBBB4000E6127 /* ClassifySoundApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C799A66C263BBBB4000E6127 /* ClassifySoundApp.swift */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		805EDDD12E1A22B0002349D6 /* PoltekAudio.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = PoltekAudio.mlmodel; sourceTree = "<group>"; };
 		A11F08E89C8F895F1A015F6B /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		C75EB17D265C2AFE00623E3B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C799A657263BBB39000E6127 /* ClassifySound.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClassifySound.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -87,6 +89,7 @@
 			isa = PBXGroup;
 			children = (
 				C75EB17D265C2AFE00623E3B /* Info.plist */,
+				805EDDD12E1A22B0002349D6 /* PoltekAudio.mlmodel */,
 				C7D522122660055000368EC5 /* Support */,
 				C799A66F263BBBB4000E6127 /* SystemAudioClassifier.swift */,
 				C799A66C263BBBB4000E6127 /* ClassifySoundApp.swift */,
@@ -143,8 +146,9 @@
 		C799A64F263BBB39000E6127 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1300;
-				LastUpgradeCheck = 1300;
+				LastUpgradeCheck = 1620;
 				ORGANIZATIONNAME = Apple;
 				TargetAttributes = {
 					C799A656263BBB39000E6127 = {
@@ -196,6 +200,7 @@
 				C799A670263BBBB4000E6127 /* ClassifySoundApp.swift in Sources */,
 				C799A673263BBBB4000E6127 /* SystemAudioClassifier.swift in Sources */,
 				C799A67F263FA405000E6127 /* ClassificationResultsSubject.swift in Sources */,
+				805EDDD22E1A22B0002349D6 /* PoltekAudio.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
