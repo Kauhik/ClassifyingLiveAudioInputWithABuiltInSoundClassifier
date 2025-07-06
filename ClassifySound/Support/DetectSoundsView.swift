@@ -1,28 +1,17 @@
-//
-//  DetectSoundsView.swift
-//  ClassifySound
-//
-//  Created by Kaushik Manian on 5/7/25.
-//  Updated to fix isRunning & restartDetection signature.
-//
-
 import SwiftUI
 
-/// Shows the grid of meters and the paused/Start button.
 struct DetectSoundsView: View {
     @ObservedObject var state: AppState
     @Binding var config: AppConfiguration
     let configureAction: () -> Void
 
-    // MARK: – Helpers for the little confidence bars
-
     private static func generateConfidenceColors(count: Int) -> [Color] {
-        let greenCount  = count / 3
-        let yellowCount = (count * 2 / 3) - greenCount
-        let redCount    = count - greenCount - yellowCount
-        return Array(repeating: .green,  count: greenCount)
-             + Array(repeating: .yellow, count: yellowCount)
-             + Array(repeating: .red,    count: redCount)
+        let green = count / 3
+        let yellow = (count * 2 / 3) - green
+        let red = count - green - yellow
+        return Array(repeating: .green, count: green)
+             + Array(repeating: .yellow, count: yellow)
+             + Array(repeating: .red,    count: red)
     }
 
     private static func generateMeter(confidence: Double) -> some View {
@@ -65,9 +54,9 @@ struct DetectSoundsView: View {
       _ detections: [(SoundIdentifier, DetectionState)]
     ) -> some View {
         ScrollView {
-            LazyVGrid(columns: [ GridItem(.adaptive(minimum: 100)) ], spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))],
+                      spacing: 8) {
                 ForEach(detections, id: \.0.labelName) { id, state in
-                    // only show confidence if detected
                     let conf = state.isDetected ? state.currentConfidence : 0
                     meterCard(confidence: conf, label: id.displayName)
                 }
@@ -76,12 +65,9 @@ struct DetectSoundsView: View {
         }
     }
 
-    // MARK: – View Body
-
     var body: some View {
         VStack {
             ZStack {
-                // Live grid
                 VStack {
                     Text("Detecting Sounds")
                       .font(.title2)
@@ -89,11 +75,9 @@ struct DetectSoundsView: View {
 
                     DetectSoundsView.generateDetectionsGrid(state.detectionStates)
                 }
-                // Blur/disable when stopped
                 .blur(radius: state.isRunning ? 0 : 10)
                 .disabled(!state.isRunning)
 
-                // Paused overlay
                 if !state.isRunning {
                     VStack(spacing: 16) {
                         Text("Sound Detection Paused")
@@ -109,7 +93,6 @@ struct DetectSoundsView: View {
 
             Spacer()
 
-            // “Edit Configuration” always visible
             Button("Edit Configuration", action: configureAction)
               .padding(.bottom, 12)
         }

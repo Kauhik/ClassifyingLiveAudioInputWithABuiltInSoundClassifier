@@ -8,13 +8,11 @@ struct SoundIdentifier: Hashable {
     /// A name suitable for displaying to a user.
     var displayName: String
 
-    /// Creates a sound identifier using an internal sound classification name.
     init(labelName: String) {
         self.labelName = labelName
         self.displayName = SoundIdentifier.displayNameForLabel(labelName)
     }
 
-    /// Converts a classifier label into a user-friendly display name.
     static func displayNameForLabel(_ label: String) -> String {
         let localizationTable = "SoundNames"
         let unlocalized = label

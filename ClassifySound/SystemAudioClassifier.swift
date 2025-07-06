@@ -3,8 +3,9 @@ import AVFoundation
 import SoundAnalysis
 import Combine
 import CoreML
+import Accelerate
 
-/// Manages both the built-in and custom Core ML sound classification pipelines.
+/// Manages both the built-in and custom Create ML sound classification pipelines.
 final class SystemAudioClassifier: NSObject {
     enum ClassificationError: Error {
         case audioStreamInterrupted
@@ -20,7 +21,7 @@ final class SystemAudioClassifier: NSObject {
     private var observers: [SNResultsObserving]?
     private var subject: PassthroughSubject<SNClassificationResult, Error>?
 
-    // MARK: – Setup
+    // MARK: – Audio session setup/teardown
 
     private func ensureMicAccess() throws {
         var granted = false
@@ -74,10 +75,12 @@ final class SystemAudioClassifier: NSObject {
             object: nil)
     }
 
-    @objc private func handleInterruption(_ note: Notification) {
+    @objc private func handleInterruption(_ notification: Notification) {
         subject?.send(completion: .failure(ClassificationError.audioStreamInterrupted))
         stopClassification()
     }
+
+    // MARK: – Tap + RMS gating + analysis
 
     private func startAnalyzing(requests: [(SNRequest, SNResultsObserving)]) throws {
         stopAnalyzing()
@@ -86,23 +89,34 @@ final class SystemAudioClassifier: NSObject {
 
         let engine = AVAudioEngine()
         let format = engine.inputNode.outputFormat(forBus: 0)
-        let analyzer = SNAudioStreamAnalyzer(format: format)
+        let newAnalyzer = SNAudioStreamAnalyzer(format: format)
 
-        self.audioEngine = engine
-        self.analyzer = analyzer
+        audioEngine = engine
+        analyzer = newAnalyzer
+        observers = requests.map { $0.1 }
 
         for (req, obs) in requests {
-            try analyzer.add(req, withObserver: obs)
+            try newAnalyzer.add(req, withObserver: obs)
         }
-        observers = requests.map { $0.1 }
 
         engine.inputNode.installTap(onBus: 0,
                                     bufferSize: 4096,
                                     format: format) { buffer, when in
             self.analysisQueue.async {
-                analyzer.analyze(buffer, atAudioFramePosition: when.sampleTime)
+                guard let data = buffer.floatChannelData?[0] else { return }
+                let count = Int(buffer.frameLength)
+
+                var meanSquare: Float = 0
+                vDSP_measqv(data, 1, &meanSquare, vDSP_Length(count))
+                let rms = sqrt(meanSquare)
+
+                // gate out low-level noise
+                if rms > 0.01 {
+                    newAnalyzer.analyze(buffer, atAudioFramePosition: when.sampleTime)
+                }
             }
         }
+
         try engine.start()
     }
 
@@ -110,13 +124,13 @@ final class SystemAudioClassifier: NSObject {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         analyzer?.removeAllRequests()
+        teardownAudioSession()
         audioEngine = nil
         analyzer = nil
         observers = nil
-        teardownAudioSession()
     }
 
-    // MARK: – Built-in classifier
+    // MARK: – System classifier
 
     func startSystemClassification(
         subject: PassthroughSubject<SNClassificationResult, Error>,
@@ -127,8 +141,9 @@ final class SystemAudioClassifier: NSObject {
         do {
             let obs = ClassificationResultsSubject(subject: subject)
             let req = try SNClassifySoundRequest(classifierIdentifier: .version1)
-            req.windowDuration = CMTimeMakeWithSeconds(windowDuration, preferredTimescale: 48000)
-            req.overlapFactor = overlap
+            // use 1.5 s window, 50 % overlap
+            req.windowDuration = CMTimeMakeWithSeconds(1.5, preferredTimescale: 48000)
+            req.overlapFactor   = 0.5
 
             self.subject = subject
             startInterruptionObservers()
@@ -148,11 +163,12 @@ final class SystemAudioClassifier: NSObject {
     ) {
         stopClassification()
         do {
-            let obs = ClassificationResultsSubject(subject: subject)
+            let obs   = ClassificationResultsSubject(subject: subject)
             let model = try PoltekAudio(configuration: MLModelConfiguration()).model
-            let req = try SNClassifySoundRequest(mlModel: model)
-            req.windowDuration = CMTimeMakeWithSeconds(windowDuration, preferredTimescale: 48000)
-            req.overlapFactor = overlap
+            let req   = try SNClassifySoundRequest(mlModel: model)
+            // match training window
+            req.windowDuration = CMTimeMakeWithSeconds(1.5, preferredTimescale: 48000)
+            req.overlapFactor   = 0.5
 
             self.subject = subject
             startInterruptionObservers()
@@ -168,7 +184,7 @@ final class SystemAudioClassifier: NSObject {
         stopInterruptionObservers()
     }
 
-    // MARK: – Utility to list labels
+    // MARK: – Label helpers
 
     static func systemLabels() throws -> [String] {
         let req = try SNClassifySoundRequest(classifierIdentifier: .version1)
@@ -177,7 +193,7 @@ final class SystemAudioClassifier: NSObject {
 
     static func customLabels() throws -> [String] {
         let model = try PoltekAudio(configuration: MLModelConfiguration()).model
-        let req = try SNClassifySoundRequest(mlModel: model)
+        let req   = try SNClassifySoundRequest(mlModel: model)
         return req.knownClassifications
     }
 }

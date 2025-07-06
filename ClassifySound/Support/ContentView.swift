@@ -9,7 +9,11 @@ struct ContentView: View {
         ZStack {
             if showSetup {
                 SetupMonitoredSoundsView(
-                    querySoundOptions: { try AppConfiguration.availableSystemSounds() },
+                    querySoundOptions: {
+                        let labels = try SystemAudioClassifier.systemLabels()
+                        let ids = labels.map { SoundIdentifier(labelName: $0) }
+                        return Set(ids)
+                    },
                     selectedSounds: $config.monitoredSounds,
                     doneAction: {
                         showSetup = false
@@ -22,9 +26,9 @@ struct ContentView: View {
                 )
             } else {
                 DetectSoundsView(
-                  state: appState,
-                  config: $config,
-                  configureAction: { showSetup = true }
+                    state: appState,
+                    config: $config,
+                    configureAction: { showSetup = true }
                 )
             }
         }

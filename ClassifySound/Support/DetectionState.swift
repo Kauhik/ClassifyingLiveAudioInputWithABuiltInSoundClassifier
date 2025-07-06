@@ -7,11 +7,8 @@ struct DetectionState {
     let presenceMeasurementsToStartDetection: Int
     let absenceMeasurementsToEndDetection: Int
 
-    /// Whether the sound is currently considered detected.
     var isDetected = false
-    /// Interim counter before toggling detected/undetected.
     var transitionProgress = 0
-    /// Last confidence score (0–1.0).
     var currentConfidence = 0.0
 
     init(presenceThreshold: Double,
@@ -24,7 +21,6 @@ struct DetectionState {
         self.absenceMeasurementsToEndDetection = absenceMeasurementsToEndDetection
     }
 
-    /// Advance from a previous state given a new confidence measurement.
     init(advancedFrom prevState: DetectionState,
          currentConfidence: Double) {
         isDetected = prevState.isDetected

@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Lets the user pick which system‐built-in labels to detect,
-/// or tap “Custom” to jump straight into your PoltekAudio.mlmodel.
+/// Lets the user pick system labels or jump directly to the custom model.
 struct SetupMonitoredSoundsView: View {
     let querySoundOptions: () throws -> Set<SoundIdentifier>
     @Binding var selectedSounds: Set<SoundIdentifier>
@@ -59,7 +58,6 @@ struct SetupMonitoredSoundsView: View {
                     selectedSounds.removeAll()
                 }
                 .padding(.horizontal)
-                // <-- your custom ML entry point
                 Button("Custom") {
                     customAction()
                 }
@@ -93,10 +91,10 @@ struct SetupMonitoredSoundsView: View {
                         }
                     } label: {
                         HStack {
-                            Image(
-                              systemName: selectedSounds.contains(option)
-                                ? "checkmark.circle.fill"
-                                : "circle"
+                            Image(systemName:
+                                selectedSounds.contains(option)
+                                  ? "checkmark.circle.fill"
+                                  : "circle"
                             )
                             Text(option.displayName)
                         }
@@ -107,7 +105,7 @@ struct SetupMonitoredSoundsView: View {
 
             if let err = queryError {
                 VStack {
-                    Text("Error loading sounds")
+                    Text("Error loading sounds:")
                     Text(err)
                     Button("Retry") {
                         do {

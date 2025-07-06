@@ -10,8 +10,7 @@ class ClassificationResultsSubject: NSObject, SNResultsObserving {
         self.subject = subject
     }
 
-    func request(_ request: SNRequest,
-                 didFailWithError error: Error) {
+    func request(_ request: SNRequest, didFailWithError error: Error) {
         subject.send(completion: .failure(error))
     }
 
@@ -19,10 +18,9 @@ class ClassificationResultsSubject: NSObject, SNResultsObserving {
         subject.send(completion: .finished)
     }
 
-    func request(_ request: SNRequest,
-                 didProduce result: SNResult) {
-        if let result = result as? SNClassificationResult {
-            subject.send(result)
+    func request(_ request: SNRequest, didProduce result: SNResult) {
+        if let classificationResult = result as? SNClassificationResult {
+            subject.send(classificationResult)
         }
     }
 }
